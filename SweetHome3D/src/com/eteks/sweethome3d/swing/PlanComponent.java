@@ -2002,12 +2002,50 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
     }
     return strokeWidth;
   }
-  
+
+  /**
+   * Prints this component plan at the scale given in the home print attributes or at a scale
+   * that makes it fill <code>pageFormat</code> imageable size if this attribute is <code>null</code>.
+   */
+  public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
+    List<Level> levels = new ArrayList<Level>();
+    for (Level level : this.home.getLevels()) {
+      if (level.isViewable()) {
+        levels.add(level);
+      }
+    }
+    if (levels.isEmpty()) {
+      return printSelectedLevel(g, pageFormat, pageIndex);
+    }
+
+    Level selectedLevel = this.home.getSelectedLevel();
+    BufferedImage dummyImage = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
+    Graphics dummyGraphics = dummyImage.getGraphics();
+    try {
+      for (Level level : levels) {
+        this.home.setSelectedLevel(level);
+        if (printSelectedLevel(g, pageFormat, pageIndex) == PAGE_EXISTS) {
+          return PAGE_EXISTS;
+        }
+        // Not on this level: count its pages so the next level starts from index 0
+        int levelPageCount = 0;
+        while (printSelectedLevel(dummyGraphics, pageFormat, levelPageCount) == PAGE_EXISTS) {
+          levelPageCount++;
+        }
+        pageIndex -= levelPageCount;
+      }
+      return NO_SUCH_PAGE;
+    } finally {
+      dummyGraphics.dispose();
+      this.home.setSelectedLevel(selectedLevel);
+    }
+  }
+
   /**
    * Prints this component plan at the scale given in the home print attributes or at a scale 
    * that makes it fill <code>pageFormat</code> imageable size if this attribute is <code>null</code>.
    */
-  public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
+  private int printSelectedLevel(Graphics g, PageFormat pageFormat, int pageIndex) {
     List<Selectable> printedItems = getPaintedItems(); 
     Rectangle2D printedItemBounds = getItemsBounds(g, printedItems);
     if (printedItemBounds != null) {
